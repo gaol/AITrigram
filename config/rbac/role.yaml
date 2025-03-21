@@ -1,0 +1,32 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - aitrigram.ihomeland.cn
+  resources:
+  - llmengines
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aitrigram.ihomeland.cn
+  resources:
+  - llmengines/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - aitrigram.ihomeland.cn
+  resources:
+  - llmengines/status
+  verbs:
+  - get
+  - patch
+  - update
