@@ -1,8 +1,8 @@
-# aitrigram
-// TODO(user): Add simple overview of use/purpose
+# AITrigram
+A kubernetes operator on LLMs serving.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+With the operator, users can define their own `LLMEngine`s, `LLMModel`s easily with scalbility.
 
 ## Getting Started
 
