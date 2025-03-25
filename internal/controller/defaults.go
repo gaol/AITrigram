@@ -5,15 +5,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func CacheAndModelsMount(llmEngineSpec *aitrigramv1.LLMEngineSpec) ([]corev1.Volume, []corev1.VolumeMount) {
+func CacheAndModelsMount(llmEngineSpec *aitrigramv1.LLMEngineSpec, defaultSpec *aitrigramv1.LLMEngineSpec) ([]corev1.Volume, []corev1.VolumeMount) {
 	// storage may be nil
 	stroage := llmEngineSpec.Stroage
-	modelStorage := &aitrigramv1.StroageMount{
-		Path: "/models",
-		VolumeSource: &corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
+	modelStorage := defaultSpec.Stroage.ModelsStorage
 	var cacheStorage *aitrigramv1.StroageMount
 	if stroage != nil {
 		if &stroage.ModelsStorage != nil {
@@ -59,6 +54,20 @@ func DefaultsOfOllamaEngine() *aitrigramv1.LLMEngineSpec {
 		Image:    &image,
 		HTTPPort: &port,
 		Args:     &[]string{"/bin/ollama", "serve"},
+		Stroage: &aitrigramv1.LLMEngineStorage{
+			ModelsStorage: &aitrigramv1.StroageMount{
+				Path: "/models",
+				VolumeSource: &corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		},
+		Envs: &[]corev1.EnvVar{
+			{
+				Name:  "OLLAMA_MODELS",
+				Value: "/models",
+			},
+		},
 	}
 	return ollamaEngine
 }

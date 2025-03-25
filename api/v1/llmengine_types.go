@@ -98,6 +98,10 @@ type LLMEngineSpec struct {
 	// +kubebuilder:default:=1
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Envs specifies the environment variables to pass to the Container.
+	// +optional
+	Envs *[]corev1.EnvVar `json:"envs,omitempty"`
 }
 
 // LLMEngineStatus defines the observed state of LLMEngine.

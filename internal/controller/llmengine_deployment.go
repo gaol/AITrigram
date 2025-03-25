@@ -84,10 +84,7 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(llmEngine *aitrigramv1.LLME
 	image := llmEngine.Spec.Image
 	httpPort := llmEngine.Spec.HTTPPort
 	args := llmEngine.Spec.Args
-	storage := &llmEngine.Spec.Stroage
-	if storage == nil {
-		return nil, errors.New(fmt.Sprintf("No storage defined for engineType: %s, name: %s", string(*engineType), llmEngine.Name))
-	}
+	envs := llmEngine.Spec.Envs
 	if image == nil {
 		image = defaultSpec.Image
 	}
@@ -100,7 +97,12 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(llmEngine *aitrigramv1.LLME
 	if args == nil {
 		args = defaultSpec.Args
 	}
-	volumes, volumeMounts := CacheAndModelsMount(&llmEngine.Spec)
+	if envs == nil {
+		envs = defaultSpec.Envs
+	} else {
+		envs = MergeEnvs(defaultSpec.Envs, envs)
+	}
+	volumes, volumeMounts := CacheAndModelsMount(&llmEngine.Spec, defaultSpec)
 	appLables := map[string]string{"app": "aitrigram-llmengine", "instance": llmEngine.Name}
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -149,10 +151,7 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(llmEngine *aitrigramv1.LLME
 						}},
 						Command:      *args,
 						VolumeMounts: volumeMounts,
-						// Env: []corev1.EnvVar{{
-						// 	Name:  "OLLAMA_MODELS",
-						// 	Value: llmEngine.Spec.ModelPath,
-						// }},
+						Env:          *envs,
 					}},
 				},
 			},

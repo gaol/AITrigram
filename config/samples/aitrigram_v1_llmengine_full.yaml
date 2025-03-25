@@ -1,0 +1,27 @@
+apiVersion: aitrigram.ihomeland.cn/v1
+kind: LLMEngine
+metadata:
+  labels:
+    app.kubernetes.io/name: aitrigram
+    app.kubernetes.io/managed-by: kustomize
+  name: ollama-engine-full
+spec:
+  # the docker image for this LLMEngine
+  engineType: "ollama"
+  servicePort: 8081
+  image: "virt.lins-p1:5000/ollama/ollama:latest"
+  replicas: 2
+  httpPort: 11434
+  args:
+    - "/bin/ollama"
+    - "serve"
+  storage:
+    cacheVolume:
+      path: "/cache"
+      HostPath: "/ollama/cache"
+    modelsVolume:
+      path: "/models_dir"
+      emptyDir: {}
+  envs:
+    - name: "OLLAMA_MODELS"
+      value: "/models_dir"
