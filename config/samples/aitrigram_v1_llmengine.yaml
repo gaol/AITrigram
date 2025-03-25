@@ -4,12 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: aitrigram
     app.kubernetes.io/managed-by: kustomize
-  name: llmengine-sample
+  name: ollama-engine
 spec:
   # the docker image for this LLMEngine
-  image: "ollama/ollama:0.6.2"
-  type: "ollama"
-  modelPath: ""
-  useGPU: False
-  httpPort: 11434
-  args: []
+  engineType: "ollama"

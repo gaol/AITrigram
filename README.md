@@ -13,15 +13,12 @@ With the operator, users can define their own `LLMEngine`s, `LLMModel`s easily w
 - Access to a Kubernetes v1.11.3+ cluster.
 
 ### To Deploy on the cluster
+
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/aitrigram:tag
+make docker-build docker-push IMG=<some-registry>/aitrigram-controller:tag
 ```
-
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
 
 **Install the CRDs into the cluster:**
 
@@ -32,7 +29,7 @@ make install
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-make deploy IMG=<some-registry>/aitrigram:tag
+make deploy IMG=<some-registry>/aitrigram-controller:tag
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
@@ -75,7 +72,7 @@ Following the options to release and provide this solution to the users.
 1. Build the installer for the image built and published in the registry:
 
 ```sh
-make build-installer IMG=<some-registry>/aitrigram:tag
+make build-installer IMG=<some-registry>/aitrigram-controller:tag
 ```
 
 **NOTE:** The makefile target mentioned above generates an 'install.yaml'
@@ -89,7 +86,7 @@ Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
 the project, i.e.:
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/aitrigram/<tag or branch>/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/gaol/AITrigram/main/dist/install.yaml
 ```
 
 ### By providing a Helm Chart
@@ -110,26 +107,22 @@ the '--force' flag and manually ensure that any custom configuration
 previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
 is manually re-applied afterwards.
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+## To Debug
 
-## License
+Create a `.vscode/launch.json` file with a configuration to debug:
+```json
+    "configurations": [
+        {
+            "name": "Launch Go",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${file}"
+        }
+    ]
+```
+Debug on the `main.go` to start the controller in you host
 
-Copyright 2025 Lin Gao.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+Or you can run the main.go directly: `go run cmd/main.go`
