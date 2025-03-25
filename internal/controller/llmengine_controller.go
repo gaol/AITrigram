@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -272,12 +271,13 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(llmEngine *aitrigramv1.LLME
 					Labels: appLables,
 				},
 				Spec: corev1.PodSpec{
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
+					// TODO cover the security in the future
+					// SecurityContext: &corev1.PodSecurityContext{
+					// 	RunAsNonRoot: ptr.To(true),
+					// 	SeccompProfile: &corev1.SeccompProfile{
+					// 		Type: corev1.SeccompProfileTypeRuntimeDefault,
+					// 	},
+					// },
 					Volumes: volumes,
 					//TODO: add NodeSelector ? ENV ? OLLAMA_MODELS path,
 					Containers: []corev1.Container{{
@@ -286,16 +286,16 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(llmEngine *aitrigramv1.LLME
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						// Ensure restrictive context for the container
 						// More info: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
-						SecurityContext: &corev1.SecurityContext{
-							RunAsNonRoot:             ptr.To(true),
-							RunAsUser:                ptr.To(int64(1001)),
-							AllowPrivilegeEscalation: ptr.To(false),
-							Capabilities: &corev1.Capabilities{
-								Drop: []corev1.Capability{
-									"ALL",
-								},
-							},
-						},
+						// SecurityContext: &corev1.SecurityContext{
+						// 	RunAsNonRoot:             ptr.To(true),
+						// 	RunAsUser:                ptr.To(int64(1001)),
+						// 	AllowPrivilegeEscalation: ptr.To(false),
+						// 	Capabilities: &corev1.Capabilities{
+						// 		Drop: []corev1.Capability{
+						// 			"ALL",
+						// 		},
+						// 	},
+						// },
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: *httpPort,
 							Name:          "http",

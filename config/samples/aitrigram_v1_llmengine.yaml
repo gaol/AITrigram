@@ -8,3 +8,4 @@ metadata:
 spec:
   # the docker image for this LLMEngine
   engineType: "ollama"
+  replicas: 2
