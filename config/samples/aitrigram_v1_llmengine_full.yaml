@@ -16,12 +16,13 @@ spec:
     - "/bin/ollama"
     - "serve"
   storage:
-    cacheVolume:
+    cacheDir:
       path: "/cache"
-      HostPath: "/ollama/cache"
-    modelsVolume:
+      hostPath:
+        path: "/ollama/cache"
+    modelsDir:
       path: "/models_dir"
       emptyDir: {}
-  envs:
+  env:
     - name: "OLLAMA_MODELS"
       value: "/models_dir"

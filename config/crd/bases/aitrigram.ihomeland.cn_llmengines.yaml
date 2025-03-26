@@ -49,7 +49,7 @@ spec:
                 enum:
                 - ollama
                 type: string
-              envs:
+              env:
                 description: Envs specifies the environment variables to pass to the
                   Container.
                 items:
@@ -201,7 +201,7 @@ spec:
                   Stroage specifies where the models are found and loaded
                   and also the cache volume to speed up the LLM inference by some frameworks like vLLM
                 properties:
-                  cacheVolume:
+                  cacheDir:
                     description: |-
                       This is the stroage configuration for the k-v cache set up
                       The purpose of using k-v cache in LLM inference is to improve the performance
@@ -1983,10 +1983,9 @@ spec:
                         - volumePath
                         type: object
                     required:
-                    - ""
                     - path
                     type: object
-                  modelsVolume:
+                  modelsDir:
                     description: |-
                       This presents where the LLM files are loaded from
                       It can be mounted as ReadOnlyMany as normally the LLM files won't be updated after downloaded.
@@ -3766,7 +3765,6 @@ spec:
                         - volumePath
                         type: object
                     required:
-                    - ""
                     - path
                     type: object
                 type: object

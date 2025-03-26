@@ -39,8 +39,7 @@ type StroageMount struct {
 	Path string `json:"path"`
 
 	// the VolumeSource from which the storage comes from
-	// +kubebuilder:validation:Required
-	*corev1.VolumeSource `json:",inline" protobuf:"bytes,2,opt,name=volumeSource"`
+	corev1.VolumeSource `json:",inline" protobuf:"bytes,2,opt,name=volumeSource"`
 }
 
 type LLMEngineStorage struct {
@@ -50,12 +49,12 @@ type LLMEngineStorage struct {
 	// LLM inference works without this, but having it may increase the throughput
 	// It is possible to have bigger data than the LLM itself.
 	// +optional
-	CacheStorage *StroageMount `json:"cacheVolume,omitempty"`
+	CacheStorage *StroageMount `json:"cacheDir,omitempty"`
 
 	// This presents where the LLM files are loaded from
 	// It can be mounted as ReadOnlyMany as normally the LLM files won't be updated after downloaded.
 	// +optional
-	ModelsStorage *StroageMount `json:"modelsVolume"`
+	ModelsStorage *StroageMount `json:"modelsDir,omitempty"`
 }
 
 // LLMEngineSpec defines the desired state of LLMEngine.
@@ -101,7 +100,7 @@ type LLMEngineSpec struct {
 
 	// Envs specifies the environment variables to pass to the Container.
 	// +optional
-	Envs *[]corev1.EnvVar `json:"envs,omitempty"`
+	Envs *[]corev1.EnvVar `json:"env,omitempty"`
 }
 
 // LLMEngineStatus defines the observed state of LLMEngine.

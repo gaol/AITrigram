@@ -18,7 +18,7 @@ func CacheAndModelsMount(llmEngineSpec *aitrigramv1.LLMEngineSpec, defaultSpec *
 	}
 	modelVolume := corev1.Volume{
 		Name:         "models",
-		VolumeSource: *modelStorage.VolumeSource,
+		VolumeSource: modelStorage.VolumeSource,
 	}
 	modelVolumeMount := corev1.VolumeMount{
 		Name:      "models",
@@ -27,7 +27,7 @@ func CacheAndModelsMount(llmEngineSpec *aitrigramv1.LLMEngineSpec, defaultSpec *
 	if cacheStorage != nil {
 		cacheVolume := corev1.Volume{
 			Name:         "cache",
-			VolumeSource: *cacheStorage.VolumeSource,
+			VolumeSource: cacheStorage.VolumeSource,
 		}
 		cacheVolumeMount := corev1.VolumeMount{
 			Name:      "cache",
@@ -57,7 +57,7 @@ func DefaultsOfOllamaEngine() *aitrigramv1.LLMEngineSpec {
 		Stroage: &aitrigramv1.LLMEngineStorage{
 			ModelsStorage: &aitrigramv1.StroageMount{
 				Path: "/models",
-				VolumeSource: &corev1.VolumeSource{
+				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			},
