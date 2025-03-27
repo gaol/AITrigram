@@ -8,7 +8,7 @@ metadata:
 spec:
   # the docker image for this LLMEngine
   engineType: "ollama"
-  servicePort: 8081
+  servicePort: 8080
   image: "virt.lins-p1:5000/ollama/ollama:latest"
   replicas: 2
   httpPort: 11434
