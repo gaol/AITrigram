@@ -18,16 +18,13 @@ package controller
 
 import (
 	"context"
-	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
 )
@@ -46,67 +43,42 @@ type LLMEngineReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop whtimeich aims to
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
 // the LLMEngine object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
+// No matter if the call was triggered by changes in the owned resources or LLMEngine itself,
+// the ctx.Get() returns the LLMEngine, not the sub resources like Deployment and Service.
 func (r *LLMEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
 
 	// Fetch the LLMEngine instance
 	llmEngine := &aitrigramv1.LLMEngine{}
 	if err := r.Get(ctx, req.NamespacedName, llmEngine); err != nil {
+		// if it is a not found error, it has been deleted already.
+		// All sub resources have the ownership with this CRD, so we don't need to worry about the deletion.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	// check status
-	if len(llmEngine.Status.Conditions) == 0 {
-		condition := &metav1.Condition{
-			Type:    "Available",
-			Status:  metav1.ConditionUnknown,
-			Reason:  "Reconciling",
-			Message: "Starting reconciliation"}
-		if err := r.updateLLMEngineStatus(ctx, req, condition); err != nil {
-			logger.Error(err, "Failed to update LLMEngine Status")
-			return ctrl.Result{}, err
+
+	// llmEngine is not nil from now, the instance is the the modified version that will will take effect.
+
+	// The engine scope changes won't lead to reconcile again, the changes will be applied to the models if
+	// any runtime changes were made after recalculating the models.
+	// So let's reconcile LLM models
+
+	modelSpecs := llmEngine.Spec.Models
+	if modelSpecs != nil && len(*modelSpecs) > 0 {
+		// there are some LLM defined, let's create resources for each of them
+		// without models, no engine starts
+		for _, mSpec := range *modelSpecs {
+			if err := r.reconcileLLMModel(ctx, req, llmEngine, &mSpec); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
-	}
-	// Reconcile the associated deployment for LLMEngine
-	// The new created deployment has ownReference to the LLMEngine
-	if err := r.reconcileLLMDeployment(ctx, req, llmEngine); err != nil {
-		return ctrl.Result{}, err
 	}
 
-	// Reconcile the LLMService associated to the LLMEngine
-	// The new created Serice has ownReference to this LLMEngine
-	if err := r.reconcileLLMService(ctx, req, llmEngine); err != nil {
-		return ctrl.Result{}, err
-	}
-	// The following implementation will update the status
-	found := false
-	for _, item := range llmEngine.Status.Conditions {
-		if item.Type == "Available" && item.Status == metav1.ConditionTrue {
-			found = true
-			break
-		}
-	}
-	if !found {
-		condition := &metav1.Condition{
-			Type:    "Available",
-			Status:  metav1.ConditionTrue,
-			Reason:  "Reconciling",
-			Message: fmt.Sprintf("Deployment for custom resource (%s) with %d replicas created successfully", llmEngine.Name, llmEngine.Spec.Replicas)}
-
-		logger.Info("Update LLMEngine Status to True")
-		if err := r.updateLLMEngineStatus(ctx, req, condition); err != nil {
-			logger.Error(err, "Failed to update LLMEngine Status")
-			return ctrl.Result{}, err
-		}
-	}
 	return ctrl.Result{}, nil
 }
 

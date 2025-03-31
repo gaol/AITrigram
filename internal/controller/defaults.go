@@ -3,18 +3,19 @@ package controller
 import (
 	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func CacheAndModelsMount(llmEngineSpec *aitrigramv1.LLMEngineSpec, defaultSpec *aitrigramv1.LLMEngineSpec) ([]corev1.Volume, []corev1.VolumeMount) {
+func cacheAndModelsMount(modelSpec *aitrigramv1.ModelSpec) ([]corev1.Volume, []corev1.VolumeMount) {
 	// storage may be nil
-	stroage := llmEngineSpec.Stroage
-	modelStorage := defaultSpec.Stroage.ModelsStorage
-	var cacheStorage *aitrigramv1.StroageMount
-	if stroage != nil {
-		if &stroage.ModelsStorage != nil {
-			modelStorage = stroage.ModelsStorage
+	storage := modelSpec.Storage
+	modelStorage := modelSpec.Storage.ModelsStorage
+	var cacheStorage *aitrigramv1.CacheStorage
+	if storage != nil {
+		if storage.ModelsStorage != nil {
+			modelStorage = storage.ModelsStorage
 		}
-		cacheStorage = stroage.CacheStorage
+		cacheStorage = storage.CacheStorage
 	}
 	modelVolume := corev1.Volume{
 		Name:         "models",
@@ -26,8 +27,10 @@ func CacheAndModelsMount(llmEngineSpec *aitrigramv1.LLMEngineSpec, defaultSpec *
 	}
 	if cacheStorage != nil {
 		cacheVolume := corev1.Volume{
-			Name:         "cache",
-			VolumeSource: cacheStorage.VolumeSource,
+			Name: "cache",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: cacheStorage.EmptyDirVolumeSource,
+			},
 		}
 		cacheVolumeMount := corev1.VolumeMount{
 			Name:      "cache",
@@ -38,27 +41,55 @@ func CacheAndModelsMount(llmEngineSpec *aitrigramv1.LLMEngineSpec, defaultSpec *
 	return []corev1.Volume{modelVolume}, []corev1.VolumeMount{modelVolumeMount}
 }
 
-func DefaultLLMEngineSpec(engineType *aitrigramv1.LLMEngineType) *aitrigramv1.LLMEngineSpec {
+func defaultLLMEngineSpec(engineType *aitrigramv1.LLMEngineType) *aitrigramv1.LLMEngineSpec {
 	if *engineType == aitrigramv1.LLMEngineTypeOllama {
-		return DefaultsOfOllamaEngine()
+		return defaultsOfOllamaEngine()
 	}
 	//TODO add more for other types
 	return &aitrigramv1.LLMEngineSpec{}
 }
 
 // Returns default setup for Ollama engine
-func DefaultsOfOllamaEngine() *aitrigramv1.LLMEngineSpec {
-	image := "virt.lins-p1:5000/ollama/ollama:latest"
-	var port int32 = 11434
+func defaultsOfOllamaEngine() *aitrigramv1.LLMEngineSpec {
+	ollama := aitrigramv1.LLMEngineTypeOllama
 	ollamaEngine := &aitrigramv1.LLMEngineSpec{
-		Image:    &image,
-		HTTPPort: &port,
-		Args:     &[]string{"/bin/ollama", "serve"},
-		Stroage: &aitrigramv1.LLMEngineStorage{
-			ModelsStorage: &aitrigramv1.StroageMount{
+		EngineType:              &ollama,
+		LLMEngineDeploymentSpec: defaultsLLMDeploymentSpecOllama(),
+		ModelDeploymentSpec:     defaultsModelDeploymentSpecOllama(),
+	}
+	return ollamaEngine
+}
+
+const (
+	defaultOllamaImage string = "virt.lins-p1:5000/ollama/ollama:latest"
+)
+
+func defaultsLLMDeploymentSpecOllama() *aitrigramv1.LLMEngineDeploymentSpec {
+	return &aitrigramv1.LLMEngineDeploymentSpec{
+		Image:       defaultOllamaImage,
+		HTTPPort:    11434,
+		ServicePort: 8080,
+	}
+}
+
+func defaultsModelDeploymentSpecOllama() *aitrigramv1.ModelDeploymentSpec {
+	cacheSizeLimit := resource.MustParse("1Gi")
+	return &aitrigramv1.ModelDeploymentSpec{
+		Args:            &[]string{"/bin/ollama", "serve"},
+		Replicas:        1,
+		DownloadImage:   defaultOllamaImage,
+		DownloadScripts: `ollama serve && sleep 10 && ollama pull {{ .ModelName }}`,
+		Storage: &aitrigramv1.LLMEngineStorage{
+			ModelsStorage: &aitrigramv1.ModelStorage{
 				Path: "/models",
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+			CacheStorage: &aitrigramv1.CacheStorage{
+				Path: "/cache_dir",
+				EmptyDirVolumeSource: &corev1.EmptyDirVolumeSource{
+					SizeLimit: &cacheSizeLimit,
 				},
 			},
 		},
@@ -69,5 +100,81 @@ func DefaultsOfOllamaEngine() *aitrigramv1.LLMEngineSpec {
 			},
 		},
 	}
-	return ollamaEngine
+}
+
+var (
+	ollamaEngineType                                   = aitrigramv1.LLMEngineTypeOllama
+	DefaultOllamaEngineSpec *aitrigramv1.LLMEngineSpec = defaultLLMEngineSpec(&ollamaEngineType)
+)
+
+// Merge the ModelDeploymentSpecs, the later settings overrides the previous ones
+// So make sure the ones you want to keep in the last arguments.
+// TODO: there are maybe more general way to merge on the general struct
+func mergeModelDeploymentSpecs(modelSpecs ...*aitrigramv1.ModelDeploymentSpec) (*aitrigramv1.ModelDeploymentSpec, error) {
+	result := &aitrigramv1.ModelDeploymentSpec{}
+	for _, ms := range modelSpecs {
+		if ms == nil {
+			continue
+		}
+		if ms.Args != nil {
+			result.Args = ms.Args
+		}
+		if ms.DownloadImage != "" {
+			result.DownloadImage = ms.DownloadImage
+		}
+		if ms.DownloadScripts != "" {
+			result.DownloadScripts = ms.DownloadScripts
+		}
+		if ms.Replicas != 0 {
+			result.Replicas = ms.Replicas
+		}
+		if ms.Envs != nil {
+			envs, err := MergeSliceByName(result.Envs, ms.Envs)
+			if err != nil {
+				return nil, err
+			}
+			result.Envs = envs
+		}
+		if ms.Storage != nil {
+			result.Storage = mergeStorages(result.Storage, ms.Storage)
+		}
+	}
+	return result, nil
+}
+
+// Merge the LLMEngineDeploymentSpec, the later overrides the previous ones
+func mergeLLMDeploymentSpecs(llmDeploymentSpecs ...*aitrigramv1.LLMEngineDeploymentSpec) *aitrigramv1.LLMEngineDeploymentSpec {
+	result := &aitrigramv1.LLMEngineDeploymentSpec{}
+	for _, llmDeploymentSpec := range llmDeploymentSpecs {
+		if llmDeploymentSpec == nil {
+			continue
+		}
+		if llmDeploymentSpec.HTTPPort != 0 {
+			result.HTTPPort = llmDeploymentSpec.HTTPPort
+		}
+		if llmDeploymentSpec.Image != "" {
+			result.Image = llmDeploymentSpec.Image
+		}
+		if llmDeploymentSpec.ServicePort != 0 {
+			result.ServicePort = llmDeploymentSpec.ServicePort
+		}
+	}
+	return result
+}
+
+func mergeStorages(storages ...*aitrigramv1.LLMEngineStorage) *aitrigramv1.LLMEngineStorage {
+	result := &aitrigramv1.LLMEngineStorage{}
+	for _, storage := range storages {
+		if storage == nil {
+			continue
+		}
+		if storage.CacheStorage != nil {
+			result.CacheStorage = storage.CacheStorage
+		}
+		if storage.ModelsStorage != nil {
+			result.ModelsStorage = storage.ModelsStorage
+		}
+
+	}
+	return result
 }

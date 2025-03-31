@@ -2,7 +2,7 @@
 A kubernetes operator on LLMs serving.
 
 ## Description
-With the operator, users can define their own `LLMEngine`s, `LLMModel`s easily with scalbility.
+With the operator, users can define their own `LLMEngine`s easily with scalbility capability.
 
 ## Getting Started
 
@@ -119,6 +119,7 @@ Create a `.vscode/launch.json` file with a configuration to debug:
             "type": "go",
             "request": "launch",
             "mode": "debug",
+            "console": "integratedTerminal",
             "program": "${file}"
         }
     ]

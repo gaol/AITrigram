@@ -9,3 +9,6 @@ spec:
   # the docker image for this LLMEngine
   engineType: "ollama"
   replicas: 2
+  models:
+    - name: "llama3-2-with-cpu"
+      nameInEngine: "llama3.2"

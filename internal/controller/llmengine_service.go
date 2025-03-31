@@ -2,26 +2,35 @@ package controller
 
 import (
 	"context"
+	"reflect"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
 )
 
-func (r *LLMEngineReconciler) reconcileLLMService(ctx context.Context, req ctrl.Request, llmEngine *aitrigramv1.LLMEngine) error {
+// Each LLM Model matches a Service for it, which exposes to the cluster, and makes it possible for LB from external cluster
+func (r *LLMEngineReconciler) reconcileLLMService(ctx context.Context, req ctrl.Request, serviceParams ReconcileParams) error {
 	// create service for each deployment
 	logger := log.FromContext(ctx)
+
+	serviceName := strings.ToLower(string(*serviceParams.engineType) + "-" + strings.ReplaceAll(serviceParams.modelSpec.Name, ".", "-"))
+	nameSpaceName := &types.NamespacedName{
+		Namespace: req.Namespace,
+		Name:      serviceName,
+	}
+
 	llmService := &corev1.Service{}
-	defaultSpec := DefaultLLMEngineSpec(llmEngine.Spec.EngineType)
-	if err := r.Get(ctx, req.NamespacedName, llmService); err != nil {
+	if err := r.Get(ctx, *nameSpaceName, llmService); err != nil {
 		// not found yet
 		if apierrors.IsNotFound(err) {
-			newService, err := r.newLLMEngineService(llmEngine, defaultSpec)
+			newService, err := r.newLLMEngineService(nameSpaceName, serviceParams)
 			if err != nil {
 				logger.Error(err, "Failed to create Service Resource for LLMEngine")
 				return err
@@ -36,31 +45,46 @@ func (r *LLMEngineReconciler) reconcileLLMService(ctx context.Context, req ctrl.
 		logger.Error(err, "Failed to get the service for LLMEngine")
 		return err
 	}
+	// check the update
+	existingCopy := llmService.DeepCopy()
+	desired, err := r.newLLMEngineService(nameSpaceName, serviceParams)
+	if err != nil {
+		logger.Error(err, "Failed to define new Service resource for LLMEngine")
+		return err
+	}
+	// make a deep copy and ignore some fields for comparison
+	desiredCopy := desired.DeepCopy()
+	desiredCopy.ObjectMeta.OwnerReferences = nil
+	desiredCopy.ObjectMeta.ResourceVersion = ""
+	existingCopy.ObjectMeta.ResourceVersion = ""
+	existingCopy.ObjectMeta.OwnerReferences = nil
+	existingCopy.Spec = desired.Spec
+	if reflect.DeepEqual(existingCopy.Spec, desiredCopy.Spec) {
+		logger.Info("Service is already up-to-date")
+		return nil
+	}
+	if err := r.Client.Patch(ctx, llmService, client.MergeFrom(desired)); err != nil {
+		logger.Error(err, "Failed to update the service")
+		return err
+	}
+
 	return nil
 }
 
-func (r *LLMEngineReconciler) newLLMEngineService(llmEngine *aitrigramv1.LLMEngine, defaultSpec *aitrigramv1.LLMEngineSpec) (*corev1.Service, error) {
-	appLables := map[string]string{"app": "aitrigram-llmengine", "instance": llmEngine.Name}
-	httpPort := llmEngine.Spec.HTTPPort
-	if httpPort == nil {
-		httpPort = defaultSpec.HTTPPort
-	}
-	servicePort := llmEngine.Spec.ServicePort
-	if servicePort == nil {
-		servicePort = defaultSpec.ServicePort
-	}
+func (r *LLMEngineReconciler) newLLMEngineService(nameSpaceName *types.NamespacedName, serviceParams ReconcileParams) (*corev1.Service, error) {
+	appLabels := map[string]string{"app": "aitrigram-llmengine", "instance": nameSpaceName.Name}
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      llmEngine.Name,
-			Namespace: llmEngine.Namespace,
-			Labels:    appLables,
+			Name:      nameSpaceName.Name,
+			Namespace: nameSpaceName.Namespace,
+			Labels:    appLabels,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: appLables,
+			Selector: appLabels,
 			Ports: []corev1.ServicePort{
 				{
-					Port:       *servicePort,
-					TargetPort: intstr.FromInt32(*httpPort),
+					Port:       serviceParams.engineDeploymentSpec.ServicePort,
+					TargetPort: intstr.FromInt32(serviceParams.engineDeploymentSpec.HTTPPort),
 				},
 			},
 			Type: corev1.ServiceTypeClusterIP,
@@ -68,7 +92,7 @@ func (r *LLMEngineReconciler) newLLMEngineService(llmEngine *aitrigramv1.LLMEngi
 	}
 	// Set the ownerRef for the Service
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
-	if err := ctrl.SetControllerReference(llmEngine, service, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(serviceParams.llmEngine, service, r.Scheme); err != nil {
 		return nil, err
 	}
 	return service, nil

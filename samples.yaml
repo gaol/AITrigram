@@ -1,0 +1,40 @@
+apiVersion: aitrigram.ihomeland.cn/v1
+kind: LLMEngine
+metadata:
+  labels:
+    app.kubernetes.io/name: aitrigram
+  name: ollama-engine
+spec:
+  engineType: "ollama"
+  image: "virt.lins-p1:5000/ollama/ollama:latest"
+  httpPort: 11434
+  servicePort: 8080
+  # each model may have different way of serving, but mostly share the same pattern
+  # as they are under the same engine, so there are builtin default for each engine
+  models:
+    - name: "llama3.2_with_cpu" # the name in this domain, showing in k8s
+      nameInEngine: "llama3.2" # the name used by the engine, so that it knows how to identify it.
+      modelUrl: "remote url to download url in the initContainer"
+      modelType: "Text2Text | something else"   # mainly for the categories for listing in the engine
+
+      # there is default download Scripts as well with variable subsitutions
+      downloadScripts: "" # this will be saved to config map and mountained by init container for downloading
+      downloadImage: "" # unless specified, the image used in the initcontainer uses the same one as app container
+      replicas: 2 # each model matches one deployment which will deploy 2 pods
+      # the followings have default value sets by engine type, users can override
+      args:
+        - "/bin/ollama"
+        - "serve"
+      storage:
+        cache:
+          path: "/cache"
+          sizeLimit: 2Gi # cache is different, so each pod has it's own cache dir, without sharing.
+        modelsDir:
+          path: "/models_dir"
+          hostPath:
+            path: "/ollama/cache"
+      env:  # extra environments may get added by the operator during discovery.
+        - name: "OLLAMA_MODELS"
+          value: "/models_dir"
+
+
