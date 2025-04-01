@@ -87,7 +87,8 @@ func (r *LLMEngineReconciler) newLLMEngineService(nameSpaceName *types.Namespace
 					TargetPort: intstr.FromInt32(serviceParams.engineDeploymentSpec.HTTPPort),
 				},
 			},
-			Type: corev1.ServiceTypeClusterIP,
+			Type:            corev1.ServiceTypeClusterIP,
+			SessionAffinity: corev1.ServiceAffinityClientIP,
 		},
 	}
 	// Set the ownerRef for the Service

@@ -184,7 +184,6 @@ spec:
                   type: object
                 type: array
               httpPort:
-                default: 8080
                 description: |-
                   HTTPPort specifies the open HTTP port for the engine inside of the container
                   It applies to all LLM models managed by this engine
@@ -2227,7 +2226,6 @@ spec:
                 minimum: 1
                 type: integer
               servicePort:
-                default: 8080
                 description: |-
                   ServicePort specifies the port for the ClusterIP Service managed by this engine.
                   It applies to all LLM models managed by this engine

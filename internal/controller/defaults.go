@@ -61,7 +61,7 @@ func defaultsOfOllamaEngine() *aitrigramv1.LLMEngineSpec {
 }
 
 const (
-	defaultOllamaImage string = "virt.lins-p1:5000/ollama/ollama:latest"
+	defaultOllamaImage string = "ollama/ollama:latest"
 )
 
 func defaultsLLMDeploymentSpecOllama() *aitrigramv1.LLMEngineDeploymentSpec {
@@ -73,12 +73,12 @@ func defaultsLLMDeploymentSpecOllama() *aitrigramv1.LLMEngineDeploymentSpec {
 }
 
 func defaultsModelDeploymentSpecOllama() *aitrigramv1.ModelDeploymentSpec {
-	cacheSizeLimit := resource.MustParse("1Gi")
+	cacheSizeLimit := resource.MustParse("2Gi")
 	return &aitrigramv1.ModelDeploymentSpec{
 		Args:            &[]string{"/bin/ollama", "serve"},
 		Replicas:        1,
 		DownloadImage:   defaultOllamaImage,
-		DownloadScripts: `ollama serve && sleep 10 && ollama pull {{ .ModelName }}`,
+		DownloadScripts: `ollama serve & sleep 10 && ollama pull {{ .ModelName }}`,
 		Storage: &aitrigramv1.LLMEngineStorage{
 			ModelsStorage: &aitrigramv1.ModelStorage{
 				Path: "/models",
@@ -98,6 +98,10 @@ func defaultsModelDeploymentSpecOllama() *aitrigramv1.ModelDeploymentSpec {
 				Name:  "OLLAMA_MODELS",
 				Value: "/models",
 			},
+			{
+				Name:  "OLLAMA_CACHE_DIR",
+				Value: "/cache_dir",
+			},
 		},
 	}
 }
@@ -109,7 +113,6 @@ var (
 
 // Merge the ModelDeploymentSpecs, the later settings overrides the previous ones
 // So make sure the ones you want to keep in the last arguments.
-// TODO: there are maybe more general way to merge on the general struct
 func mergeModelDeploymentSpecs(modelSpecs ...*aitrigramv1.ModelDeploymentSpec) (*aitrigramv1.ModelDeploymentSpec, error) {
 	result := &aitrigramv1.ModelDeploymentSpec{}
 	for _, ms := range modelSpecs {

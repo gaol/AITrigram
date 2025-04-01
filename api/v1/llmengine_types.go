@@ -99,6 +99,7 @@ type ModelSpec struct {
 
 // ModelDeploymentSpec defines a spec for LLM Model serving
 // It maps to a Deployment resource and the Pod resources it manages.
+// do not set default values in the global spec scope, it is set based on the engineType
 type ModelDeploymentSpec struct {
 
 	// Args specifies the arguments to pass to the app container.
@@ -134,13 +135,13 @@ type ModelDeploymentSpec struct {
 	DownloadScripts string `json:"downloadScripts,omitempty"`
 }
 
+// do not set default values in the global spec scope, it is set based on the engineType
 type LLMEngineDeploymentSpec struct {
 
 	// HTTPPort specifies the open HTTP port for the engine inside of the container
 	// It applies to all LLM models managed by this engine
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:default:=8080
 	// +optional
 	HTTPPort int32 `json:"httpPort,omitempty"`
 
@@ -148,7 +149,6 @@ type LLMEngineDeploymentSpec struct {
 	// It applies to all LLM models managed by this engine
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:default:=8080
 	// +optional
 	ServicePort int32 `json:"servicePort,omitempty"`
 

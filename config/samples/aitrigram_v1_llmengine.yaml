@@ -10,5 +10,5 @@ spec:
   engineType: "ollama"
   replicas: 2
   models:
-    - name: "llama3-2-with-cpu"
-      nameInEngine: "llama3.2"
+    - name: "gemma3-1b-with-cpu"
+      nameInEngine: "gemma3:1b"
