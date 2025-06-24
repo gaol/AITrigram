@@ -1,0 +1,51 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: aitrigram.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: LLMEngine is the Schema for the llmengines API.
+      displayName: LLMEngine
+      kind: LLMEngine
+      name: llmengines.aitrigram.ihomeland.cn
+      version: v1
+  description: The operator to undle AI inference providers
+  displayName: aitrigram
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - ai
+  - agent
+  - llm
+  - vllm
+  links:
+  - name: Aitrigram
+    url: https://aitrigram.domain
+  maintainers:
+  - email: aoingl@gmail.com
+    name: lgao
+  maturity: alpha
+  provider:
+    name: aitrigram
+    url: https://github.com/gaol
+  version: 0.0.0

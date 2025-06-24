@@ -24,7 +24,10 @@ go.work
 *.swp
 *.swo
 *~
+*.backup
+demo*
 
 __debug*
 TODO.md
+dev.md
 test.yaml

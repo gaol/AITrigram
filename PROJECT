@@ -5,6 +5,9 @@
 domain: ihomeland.cn
 layout:
 - go.kubebuilder.io/v4
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
 projectName: aitrigram
 repo: github.com/gaol/AITrigram
 resources:
@@ -17,4 +20,8 @@ resources:
   kind: LLMEngine
   path: github.com/gaol/AITrigram/api/v1
   version: v1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"
