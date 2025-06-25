@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
+	"github.com/gaol/AITrigram/internal/controller"
 )
 
 // nolint:unused
@@ -65,8 +66,12 @@ func (d *LLMEngineCustomDefaulter) Default(ctx context.Context, obj runtime.Obje
 	}
 	llmenginelog.Info("Defaulting for LLMEngine", "name", llmengine.GetName())
 
-	// TODO(user): fill in your defaulting logic.
-
+	defaultSpec := controller.DefaultLLMEngineSpec(&llmengine.Spec.EngineType)
+	_spec, err := controller.MergeLLMSpecs(defaultSpec, &llmengine.Spec)
+	if err != nil {
+		return err
+	}
+	llmengine.Spec = *_spec
 	return nil
 }
 

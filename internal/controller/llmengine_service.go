@@ -16,11 +16,11 @@ import (
 )
 
 // Each LLM Model matches a Service for it, which exposes to the cluster, and makes it possible for LB from external cluster
-func (r *LLMEngineReconciler) reconcileLLMService(ctx context.Context, req ctrl.Request, serviceParams ReconcileParams) error {
+func (r *LLMModelReconciler) reconcileLLMService(ctx context.Context, req ctrl.Request, serviceParams ReconcileParams) error {
 	// create service for each deployment
 	logger := log.FromContext(ctx)
 
-	serviceName := strings.ToLower(string(*serviceParams.engineType) + "-" + strings.ReplaceAll(serviceParams.modelSpec.Name, ".", "-"))
+	serviceName := strings.ToLower(string(*&serviceParams.llmEngine.Spec.EngineType) + "-" + strings.ReplaceAll(serviceParams.model.Spec.Name, ".", "-"))
 	nameSpaceName := &types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      serviceName,
@@ -71,8 +71,8 @@ func (r *LLMEngineReconciler) reconcileLLMService(ctx context.Context, req ctrl.
 	return nil
 }
 
-func (r *LLMEngineReconciler) newLLMEngineService(nameSpaceName *types.NamespacedName, serviceParams ReconcileParams) (*corev1.Service, error) {
-	appLabels := map[string]string{"app": "aitrigram-llmengine", "instance": nameSpaceName.Name}
+func (r *LLMModelReconciler) newLLMEngineService(nameSpaceName *types.NamespacedName, serviceParams ReconcileParams) (*corev1.Service, error) {
+	appLabels := map[string]string{"app": "aitrigram-llmmodel", "instance": nameSpaceName.Name}
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nameSpaceName.Name,
@@ -83,8 +83,8 @@ func (r *LLMEngineReconciler) newLLMEngineService(nameSpaceName *types.Namespace
 			Selector: appLabels,
 			Ports: []corev1.ServicePort{
 				{
-					Port:       serviceParams.engineDeploymentSpec.ServicePort,
-					TargetPort: intstr.FromInt32(serviceParams.engineDeploymentSpec.HTTPPort),
+					Port:       serviceParams.llmEngine.Spec.ServicePort,
+					TargetPort: intstr.FromInt32(serviceParams.llmEngine.Spec.Port),
 				},
 			},
 			Type:            corev1.ServiceTypeClusterIP,
@@ -93,7 +93,7 @@ func (r *LLMEngineReconciler) newLLMEngineService(nameSpaceName *types.Namespace
 	}
 	// Set the ownerRef for the Service
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
-	if err := ctrl.SetControllerReference(serviceParams.llmEngine, service, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(serviceParams.model, service, r.Scheme); err != nil {
 		return nil, err
 	}
 	return service, nil

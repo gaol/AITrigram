@@ -22,3 +22,15 @@ func (r *LLMEngineReconciler) updateLLMEngineStatus(ctx context.Context, req ctr
 	}
 	return nil
 }
+
+func (r *LLMModelReconciler) updateLLMModelStatus(ctx context.Context, req ctrl.Request, condition *metav1.Condition) error {
+	llmModel := &aitrigramv1.LLMModel{}
+	if err := r.Get(ctx, req.NamespacedName, llmModel); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	meta.SetStatusCondition(&llmModel.Status.Conditions, *condition)
+	if err := r.Status().Update(ctx, llmModel); err != nil {
+		return err
+	}
+	return nil
+}

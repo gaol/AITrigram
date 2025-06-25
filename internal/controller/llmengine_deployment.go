@@ -26,11 +26,11 @@ type DownloadScriptsTemplate struct {
 
 // Reconcile the deployment for a LLM model
 // when this method is called, all values have been recalculated with consideration of default values and user desired changes.
-func (r *LLMEngineReconciler) reconcileLLMDeployment(ctx context.Context, req ctrl.Request, deploymentParams ReconcileParams) error {
+func (r *LLMModelReconciler) reconcileLLMDeployment(ctx context.Context, req ctrl.Request, deploymentParams ReconcileParams) error {
 
 	logger := log.FromContext(ctx)
 
-	deploymentName := strings.ToLower(string(*deploymentParams.engineType) + "-" + strings.ReplaceAll(deploymentParams.modelSpec.Name, ".", "-"))
+	deploymentName := strings.ToLower(string(*&deploymentParams.llmEngine.Spec.EngineType) + "-" + strings.ReplaceAll(deploymentParams.model.Spec.Name, ".", "-"))
 	deployment := &appsv1.Deployment{}
 	nameSpaceName := &types.NamespacedName{
 		Namespace: req.Namespace,
@@ -98,20 +98,20 @@ func generateInitScript(scripts string, data DownloadScriptsTemplate) (string, e
 }
 
 // The new deployment has the ownerReferences to the llmEngine CR, so it will be handled automatically by the core
-func (r *LLMEngineReconciler) newLLMEngineDeployment(nameSpaceName *types.NamespacedName, deploymentParams ReconcileParams) (*appsv1.Deployment, error) {
-	replicas := deploymentParams.modelSpec.Replicas
-	image := deploymentParams.engineDeploymentSpec.Image
-	httpPort := deploymentParams.engineDeploymentSpec.HTTPPort
-	args := deploymentParams.modelSpec.Args
-	envs := deploymentParams.modelSpec.Envs
-	volumes, volumeMounts := cacheAndModelsMount(deploymentParams.modelSpec)
-	appLabels := map[string]string{"app": "aitrigram-llmengine", "instance": nameSpaceName.Name}
+func (r *LLMModelReconciler) newLLMEngineDeployment(nameSpaceName *types.NamespacedName, deploymentParams ReconcileParams) (*appsv1.Deployment, error) {
+	replicas := deploymentParams.model.Spec.Replicas
+	image := deploymentParams.llmEngine.Spec.Image
+	port := deploymentParams.llmEngine.Spec.Port
+	args := deploymentParams.model.Spec.ModelDeployment.Args
+	envs := deploymentParams.model.Spec.ModelDeployment.Envs
+	volumes, volumeMounts := cacheAndModelsMount(deploymentParams.model.Spec.ModelDeployment.Storage)
+	appLabels := map[string]string{"app": "aitrigram-llmmodel", "instance": nameSpaceName.Name}
 	downloadScriptsTemplate := DownloadScriptsTemplate{
-		ModelName: deploymentParams.modelSpec.NameInEngine,
-		ModelUrl:  deploymentParams.modelSpec.ModelUrl,
-		ModelDir:  deploymentParams.modelSpec.Storage.ModelsStorage.Path,
+		ModelName: deploymentParams.model.Spec.NameInEngine,
+		ModelUrl:  deploymentParams.model.Spec.ModelDeployment.DownloadImage,
+		ModelDir:  deploymentParams.model.Spec.ModelDeployment.Storage.ModelsStorage.Path,
 	}
-	downloadScripts, err := generateInitScript(deploymentParams.modelSpec.DownloadScripts, downloadScriptsTemplate)
+	downloadScripts, err := generateInitScript(deploymentParams.model.Spec.ModelDeployment.DownloadScripts, downloadScriptsTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(nameSpaceName *types.Namesp
 				Spec: corev1.PodSpec{
 					Volumes: volumes,
 					InitContainers: []corev1.Container{{
-						Image:        deploymentParams.modelSpec.DownloadImage,
+						Image:        deploymentParams.model.Spec.ModelDeployment.DownloadImage,
 						Name:         "init-" + nameSpaceName.Name,
 						VolumeMounts: volumeMounts,
 						Env:          *envs,
@@ -146,10 +146,10 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(nameSpaceName *types.Namesp
 						ImagePullPolicy: corev1.PullIfNotPresent,
 
 						Ports: []corev1.ContainerPort{{
-							ContainerPort: httpPort,
+							ContainerPort: port,
 							Name:          "http",
 						}},
-						Command:      *args,
+						Command:      args,
 						VolumeMounts: volumeMounts,
 						Env:          *envs,
 					}},
@@ -159,7 +159,7 @@ func (r *LLMEngineReconciler) newLLMEngineDeployment(nameSpaceName *types.Namesp
 	}
 	// Set the ownerRef for the Deployment
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
-	if err := ctrl.SetControllerReference(deploymentParams.llmEngine, dep, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(deploymentParams.model, dep, r.Scheme); err != nil {
 		return nil, err
 	}
 	return dep, nil

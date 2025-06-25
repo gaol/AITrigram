@@ -8,34 +8,25 @@ import (
 )
 
 type ReconcileParams struct {
-	engineType           *aitrigramv1.LLMEngineType
-	engineDeploymentSpec *aitrigramv1.LLMEngineDeploymentSpec
-	llmEngine            *aitrigramv1.LLMEngine
-	modelSpec            *aitrigramv1.ModelSpec
+	llmEngine *aitrigramv1.LLMEngine
+	// the ModelDeployment in the model has taken the values in the llmEngine
+	model *aitrigramv1.LLMModel
 }
 
-func (r *LLMEngineReconciler) reconcileLLMModel(ctx context.Context, req ctrl.Request,
-	llmEngine *aitrigramv1.LLMEngine, modelSpec *aitrigramv1.ModelSpec) error {
+func (r *LLMModelReconciler) reconcileLLMModel(ctx context.Context, req ctrl.Request,
+	llmEngine *aitrigramv1.LLMEngine, model *aitrigramv1.LLMModel) error {
 
-	// default settings in the LLMEngineSpec
-	// This needs to be calculated by merging the ones in modelSpec to the one from llmEngine.Spec.ModelDeploymentSpec
-	// and it also takes consideration of the default settings by llmEngineType
-	defaultSpec := defaultLLMEngineSpec(llmEngine.Spec.EngineType)
-
-	modelDeploymentSpec, err := mergeModelDeploymentSpecs(defaultSpec.ModelDeploymentSpec, llmEngine.Spec.ModelDeploymentSpec, modelSpec.ModelDeploymentSpec)
+	// llmEngine has now the all values set because it is retrieved from the cluster
+	// the same for the llmEngine.Spec
+	modelDeploymentSpec, err := MergeModelDeploymentTemplate(llmEngine.Spec.ModelDeploymentTemplate, model.Spec.ModelDeployment)
 	if err != nil {
 		return err
 	}
-	modelSpec = modelSpec.DeepCopy()
-	modelSpec.ModelDeploymentSpec = modelDeploymentSpec
-	llmEngineDeploymentSpec := mergeLLMDeploymentSpecs(defaultSpec.LLMEngineDeploymentSpec, llmEngine.Spec.LLMEngineDeploymentSpec)
+	model.Spec.ModelDeployment = modelDeploymentSpec
 
-	// reconcile deployment for this model, if maybe multiple pods
 	params := ReconcileParams{
-		engineType:           llmEngine.Spec.EngineType,
-		engineDeploymentSpec: llmEngineDeploymentSpec,
-		llmEngine:            llmEngine,
-		modelSpec:            modelSpec,
+		llmEngine: llmEngine,
+		model:     model,
 	}
 	if err := r.reconcileLLMDeployment(ctx, req, params); err != nil {
 		return err

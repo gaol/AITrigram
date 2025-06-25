@@ -35,6 +35,7 @@ rules:
   - aitrigram.ihomeland.cn
   resources:
   - llmengines
+  - llmmodels
   verbs:
   - create
   - delete
@@ -47,12 +48,14 @@ rules:
   - aitrigram.ihomeland.cn
   resources:
   - llmengines/finalizers
+  - llmmodels/finalizers
   verbs:
   - update
 - apiGroups:
   - aitrigram.ihomeland.cn
   resources:
   - llmengines/status
+  - llmmodels/status
   verbs:
   - get
   - patch

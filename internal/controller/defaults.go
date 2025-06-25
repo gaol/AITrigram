@@ -6,10 +6,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func cacheAndModelsMount(modelSpec *aitrigramv1.ModelSpec) ([]corev1.Volume, []corev1.VolumeMount) {
+func cacheAndModelsMount(storage *aitrigramv1.LLMEngineStorage) ([]corev1.Volume, []corev1.VolumeMount) {
 	// storage may be nil
-	storage := modelSpec.Storage
-	modelStorage := modelSpec.Storage.ModelsStorage
+
+	// storage := modelSpec.ModelDeployment.Storage
+	var modelStorage *aitrigramv1.ModelStorage
 	var cacheStorage *aitrigramv1.CacheStorage
 	if storage != nil {
 		if storage.ModelsStorage != nil {
@@ -41,7 +42,7 @@ func cacheAndModelsMount(modelSpec *aitrigramv1.ModelSpec) ([]corev1.Volume, []c
 	return []corev1.Volume{modelVolume}, []corev1.VolumeMount{modelVolumeMount}
 }
 
-func defaultLLMEngineSpec(engineType *aitrigramv1.LLMEngineType) *aitrigramv1.LLMEngineSpec {
+func DefaultLLMEngineSpec(engineType *aitrigramv1.LLMEngineType) *aitrigramv1.LLMEngineSpec {
 	if *engineType == aitrigramv1.LLMEngineTypeOllama {
 		return defaultsOfOllamaEngine()
 	}
@@ -53,9 +54,11 @@ func defaultLLMEngineSpec(engineType *aitrigramv1.LLMEngineType) *aitrigramv1.LL
 func defaultsOfOllamaEngine() *aitrigramv1.LLMEngineSpec {
 	ollama := aitrigramv1.LLMEngineTypeOllama
 	ollamaEngine := &aitrigramv1.LLMEngineSpec{
-		EngineType:              &ollama,
-		LLMEngineDeploymentSpec: defaultsLLMDeploymentSpecOllama(),
-		ModelDeploymentSpec:     defaultsModelDeploymentSpecOllama(),
+		EngineType:              ollama,
+		Image:                   defaultOllamaImage,
+		Port:                    11434,
+		ServicePort:             8080,
+		ModelDeploymentTemplate: defaultsModelDeploymentSpecOllama(),
 	}
 	return ollamaEngine
 }
@@ -64,19 +67,10 @@ const (
 	defaultOllamaImage string = "ollama/ollama:latest"
 )
 
-func defaultsLLMDeploymentSpecOllama() *aitrigramv1.LLMEngineDeploymentSpec {
-	return &aitrigramv1.LLMEngineDeploymentSpec{
-		Image:       defaultOllamaImage,
-		HTTPPort:    11434,
-		ServicePort: 8080,
-	}
-}
-
-func defaultsModelDeploymentSpecOllama() *aitrigramv1.ModelDeploymentSpec {
+func defaultsModelDeploymentSpecOllama() *aitrigramv1.ModelDeploymentTemplate {
 	cacheSizeLimit := resource.MustParse("2Gi")
-	return &aitrigramv1.ModelDeploymentSpec{
-		Args:            &[]string{"/bin/ollama", "serve"},
-		Replicas:        1,
+	return &aitrigramv1.ModelDeploymentTemplate{
+		Args:            []string{"/bin/ollama", "serve"},
 		DownloadImage:   defaultOllamaImage,
 		DownloadScripts: `ollama serve & sleep 10 && ollama pull {{ .ModelName }}`,
 		Storage: &aitrigramv1.LLMEngineStorage{
@@ -108,13 +102,16 @@ func defaultsModelDeploymentSpecOllama() *aitrigramv1.ModelDeploymentSpec {
 
 var (
 	ollamaEngineType                                   = aitrigramv1.LLMEngineTypeOllama
-	DefaultOllamaEngineSpec *aitrigramv1.LLMEngineSpec = defaultLLMEngineSpec(&ollamaEngineType)
+	DefaultOllamaEngineSpec *aitrigramv1.LLMEngineSpec = DefaultLLMEngineSpec(&ollamaEngineType)
 )
 
-// Merge the ModelDeploymentSpecs, the later settings overrides the previous ones
+// Merge the ModelDeploymentTemplate, the later settings overrides the previous ones
 // So make sure the ones you want to keep in the last arguments.
-func mergeModelDeploymentSpecs(modelSpecs ...*aitrigramv1.ModelDeploymentSpec) (*aitrigramv1.ModelDeploymentSpec, error) {
-	result := &aitrigramv1.ModelDeploymentSpec{}
+func MergeModelDeploymentTemplate(modelSpecs ...*aitrigramv1.ModelDeploymentTemplate) (*aitrigramv1.ModelDeploymentTemplate, error) {
+	result := &aitrigramv1.ModelDeploymentTemplate{}
+	if modelSpecs == nil {
+		return result, nil
+	}
 	for _, ms := range modelSpecs {
 		if ms == nil {
 			continue
@@ -127,9 +124,6 @@ func mergeModelDeploymentSpecs(modelSpecs ...*aitrigramv1.ModelDeploymentSpec) (
 		}
 		if ms.DownloadScripts != "" {
 			result.DownloadScripts = ms.DownloadScripts
-		}
-		if ms.Replicas != 0 {
-			result.Replicas = ms.Replicas
 		}
 		if ms.Envs != nil {
 			envs, err := MergeSliceByName(result.Envs, ms.Envs)
@@ -145,28 +139,41 @@ func mergeModelDeploymentSpecs(modelSpecs ...*aitrigramv1.ModelDeploymentSpec) (
 	return result, nil
 }
 
-// Merge the LLMEngineDeploymentSpec, the later overrides the previous ones
-func mergeLLMDeploymentSpecs(llmDeploymentSpecs ...*aitrigramv1.LLMEngineDeploymentSpec) *aitrigramv1.LLMEngineDeploymentSpec {
-	result := &aitrigramv1.LLMEngineDeploymentSpec{}
-	for _, llmDeploymentSpec := range llmDeploymentSpecs {
-		if llmDeploymentSpec == nil {
+// Merge the LLMEngineSpec, the later overrides the previous ones
+func MergeLLMSpecs(llmEngineSpecs ...*aitrigramv1.LLMEngineSpec) (*aitrigramv1.LLMEngineSpec, error) {
+	result := &aitrigramv1.LLMEngineSpec{}
+	if llmEngineSpecs == nil {
+		return result, nil
+	}
+	for _, llmSpec := range llmEngineSpecs {
+		if llmSpec == nil {
 			continue
 		}
-		if llmDeploymentSpec.HTTPPort != 0 {
-			result.HTTPPort = llmDeploymentSpec.HTTPPort
+		if llmSpec.Port != 0 {
+			result.Port = llmSpec.Port
 		}
-		if llmDeploymentSpec.Image != "" {
-			result.Image = llmDeploymentSpec.Image
+		if llmSpec.Image != "" {
+			result.Image = llmSpec.Image
 		}
-		if llmDeploymentSpec.ServicePort != 0 {
-			result.ServicePort = llmDeploymentSpec.ServicePort
+		if llmSpec.ServicePort != 0 {
+			result.ServicePort = llmSpec.ServicePort
+		}
+		if llmSpec.ModelDeploymentTemplate != nil {
+			modelDeploymentTemplate, err := MergeModelDeploymentTemplate(result.ModelDeploymentTemplate, llmSpec.ModelDeploymentTemplate)
+			if err != nil {
+				return nil, err
+			}
+			result.ModelDeploymentTemplate = modelDeploymentTemplate
 		}
 	}
-	return result
+	return result, nil
 }
 
 func mergeStorages(storages ...*aitrigramv1.LLMEngineStorage) *aitrigramv1.LLMEngineStorage {
 	result := &aitrigramv1.LLMEngineStorage{}
+	if storages == nil {
+		return result
+	}
 	for _, storage := range storages {
 		if storage == nil {
 			continue

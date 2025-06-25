@@ -19,9 +19,6 @@ package controller
 import (
 	"context"
 
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,24 +58,6 @@ func (r *LLMEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// All sub resources have the ownership with this CRD, so we don't need to worry about the deletion.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	// llmEngine is not nil from now, the instance is the the modified version that will will take effect.
-
-	// The engine scope changes won't lead to reconcile again, the changes will be applied to the models if
-	// any runtime changes were made after recalculating the models.
-	// So let's reconcile LLM models
-
-	modelSpecs := llmEngine.Spec.Models
-	if modelSpecs != nil && len(*modelSpecs) > 0 {
-		// there are some LLM defined, let's create resources for each of them
-		// without models, no engine starts
-		for _, mSpec := range *modelSpecs {
-			if err := r.reconcileLLMModel(ctx, req, llmEngine, &mSpec); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -86,8 +65,7 @@ func (r *LLMEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *LLMEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aitrigramv1.LLMEngine{}).
-		Owns(&appsv1.Deployment{}).
-		Owns(&corev1.Service{}).
+		Owns(&aitrigramv1.LLMModel{}).
 		Named("llmengine").
 		Complete(r)
 }
