@@ -108,11 +108,14 @@ var (
 // Merge the ModelDeploymentTemplate, the later settings overrides the previous ones
 // So make sure the ones you want to keep in the last arguments.
 func MergeModelDeploymentTemplate(modelSpecs ...*aitrigramv1.ModelDeploymentTemplate) (*aitrigramv1.ModelDeploymentTemplate, error) {
-	result := &aitrigramv1.ModelDeploymentTemplate{}
-	if modelSpecs == nil {
-		return result, nil
+	if len(modelSpecs) == 0 {
+		return nil, nil
 	}
-	for _, ms := range modelSpecs {
+	if len(modelSpecs) == 1 {
+		return modelSpecs[0], nil
+	}
+	result := modelSpecs[0]
+	for _, ms := range modelSpecs[1:] {
 		if ms == nil {
 			continue
 		}
@@ -141,13 +144,19 @@ func MergeModelDeploymentTemplate(modelSpecs ...*aitrigramv1.ModelDeploymentTemp
 
 // Merge the LLMEngineSpec, the later overrides the previous ones
 func MergeLLMSpecs(llmEngineSpecs ...*aitrigramv1.LLMEngineSpec) (*aitrigramv1.LLMEngineSpec, error) {
-	result := &aitrigramv1.LLMEngineSpec{}
-	if llmEngineSpecs == nil {
-		return result, nil
+	if len(llmEngineSpecs) == 0 {
+		return nil, nil
 	}
-	for _, llmSpec := range llmEngineSpecs {
+	if len(llmEngineSpecs) == 1 {
+		return llmEngineSpecs[0], nil
+	}
+	result := llmEngineSpecs[0]
+	for _, llmSpec := range llmEngineSpecs[1:] {
 		if llmSpec == nil {
 			continue
+		}
+		if llmSpec.EngineType != "" {
+			result.EngineType = llmSpec.EngineType
 		}
 		if llmSpec.Port != 0 {
 			result.Port = llmSpec.Port
@@ -170,11 +179,14 @@ func MergeLLMSpecs(llmEngineSpecs ...*aitrigramv1.LLMEngineSpec) (*aitrigramv1.L
 }
 
 func mergeStorages(storages ...*aitrigramv1.LLMEngineStorage) *aitrigramv1.LLMEngineStorage {
-	result := &aitrigramv1.LLMEngineStorage{}
-	if storages == nil {
-		return result
+	if len(storages) == 0 {
+		return nil
 	}
-	for _, storage := range storages {
+	if len(storages) == 1 {
+		return storages[0]
+	}
+	result := storages[0]
+	for _, storage := range storages[1:] {
 		if storage == nil {
 			continue
 		}

@@ -20,7 +20,7 @@ func (r *LLMModelReconciler) reconcileLLMService(ctx context.Context, req ctrl.R
 	// create service for each deployment
 	logger := log.FromContext(ctx)
 
-	serviceName := strings.ToLower(string(*&serviceParams.llmEngine.Spec.EngineType) + "-" + strings.ReplaceAll(serviceParams.model.Spec.Name, ".", "-"))
+	serviceName := strings.ToLower(string(serviceParams.llmEngine.Spec.EngineType) + "-" + strings.ReplaceAll(serviceParams.model.Spec.Name, ".", "-"))
 	nameSpaceName := &types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      serviceName,
@@ -54,11 +54,6 @@ func (r *LLMModelReconciler) reconcileLLMService(ctx context.Context, req ctrl.R
 	}
 	// make a deep copy and ignore some fields for comparison
 	desiredCopy := desired.DeepCopy()
-	desiredCopy.ObjectMeta.OwnerReferences = nil
-	desiredCopy.ObjectMeta.ResourceVersion = ""
-	existingCopy.ObjectMeta.ResourceVersion = ""
-	existingCopy.ObjectMeta.OwnerReferences = nil
-	existingCopy.Spec = desired.Spec
 	if reflect.DeepEqual(existingCopy.Spec, desiredCopy.Spec) {
 		logger.Info("Service is already up-to-date")
 		return nil

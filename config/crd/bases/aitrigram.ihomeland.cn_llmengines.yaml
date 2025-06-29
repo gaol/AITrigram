@@ -2028,7 +2028,6 @@ spec:
                 type: integer
             required:
             - engineType
-            - image
             type: object
           status:
             description: LLMEngineStatus defines the observed state of LLMEngine.

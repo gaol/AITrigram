@@ -63,7 +63,7 @@ type LLMEngineSpec struct {
 	EngineType LLMEngineType `json:"engineType"`
 
 	// Image specifies the container image to use for the engine.
-	// +kubebuilder:validation:Required
+	// +optional
 	Image string `json:"image"`
 
 	// Port specifies the open HTTP port for the engine inside of the container

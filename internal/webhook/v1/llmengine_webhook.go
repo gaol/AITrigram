@@ -36,13 +36,12 @@ var llmenginelog = logf.Log.WithName("llmengine-resource")
 
 // SetupLLMEngineWebhookWithManager registers the webhook for LLMEngine in the manager.
 func SetupLLMEngineWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&aitrigramv1.LLMEngine{}).
-		WithValidator(&LLMEngineCustomValidator{}).
-		WithDefaulter(&LLMEngineCustomDefaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&aitrigramv1.LLMEngine{}).
+		// WithValidator(&LLMEngineCustomValidator{}).
+		// WithDefaulter(&LLMEngineCustomDefaulter{}).
 		Complete()
 }
-
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 // +kubebuilder:webhook:path=/mutate-aitrigram-ihomeland-cn-v1-llmengine,mutating=true,failurePolicy=fail,sideEffects=None,groups=aitrigram.ihomeland.cn,resources=llmengines,verbs=create;update,versions=v1,name=mllmengine-v1.kb.io,admissionReviewVersions=v1
 

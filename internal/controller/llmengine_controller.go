@@ -18,10 +18,12 @@ package controller
 
 import (
 	"context"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
 )
@@ -29,16 +31,15 @@ import (
 // LLMEngineReconciler reconciles a LLMEngine object
 type LLMEngineReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme            *runtime.Scheme
+	OperatorNamespace string
+	OperatorPodName   string
 }
 
 // +kubebuilder:rbac:groups=aitrigram.ihomeland.cn,resources=llmengines,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aitrigram.ihomeland.cn,resources=llmengines/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=aitrigram.ihomeland.cn,resources=llmengines/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -50,15 +51,28 @@ type LLMEngineReconciler struct {
 // No matter if the call was triggered by changes in the owned resources or LLMEngine itself,
 // the ctx.Get() returns the LLMEngine, not the sub resources like Deployment and Service.
 func (r *LLMEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
+	logger := log.FromContext(ctx)
 	// Fetch the LLMEngine instance
 	llmEngine := &aitrigramv1.LLMEngine{}
 	if err := r.Get(ctx, req.NamespacedName, llmEngine); err != nil {
-		// if it is a not found error, it has been deleted already.
-		// All sub resources have the ownership with this CRD, so we don't need to worry about the deletion.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	return ctrl.Result{}, nil
+
+	desired, err := MergeLLMSpecs(DefaultLLMEngineSpec(&llmEngine.Spec.EngineType), &llmEngine.Spec)
+	if err != nil {
+		return ctrl.Result{}, nil
+	}
+	if reflect.DeepEqual(llmEngine.Spec, desired) {
+		logger.Info("LLMEngine is already up-to-date")
+		return ctrl.Result{}, nil
+	}
+	llmEngine.Spec = *desired
+	logger.Info("Update LLMEngine Spec")
+	if err := r.Client.Update(ctx, llmEngine); err != nil {
+		logger.Error(err, "Failed to update the llmengine")
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

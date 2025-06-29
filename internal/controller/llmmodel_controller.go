@@ -18,7 +18,8 @@ package controller
 
 import (
 	"context"
-	"fmt"
+	"reflect"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // LLMModelReconciler reconciles a LLMModel object
@@ -54,31 +56,48 @@ func (r *LLMModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	engineRef := llmModel.Spec.EngineRef
 	llmEngine := &aitrigramv1.LLMEngine{}
 	if err := r.Get(ctx, client.ObjectKey{Name: engineRef, Namespace: req.Namespace}, llmEngine); err != nil {
-		if client.IgnoreNotFound(err) == nil {
+		if apierrors.IsNotFound(err) {
+			if llmModel.GetDeletionTimestamp() != nil || llmEngine.GetDeletionTimestamp() != nil {
+				// llmModel has been deleted, just ignore
+				logger.Info("llmEngine has been deleted, llmModel will be deleted too, ignore it.")
+				return ctrl.Result{}, nil
+			}
 			logger.Error(err, "Failed to get LLMEngine",
 				"engineRef", engineRef, "namespace", req.Namespace)
-			// Set failure condition on LLMModel status
-			condition := metav1.Condition{
-				Type:    "Ready",
-				Status:  metav1.ConditionFalse,
-				Reason:  "EngineNotFound",
-				Message: fmt.Sprintf("No LLMEngine found with name=%s", engineRef),
-			}
-			if err := r.updateLLMModelStatus(ctx, req, &condition); err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	// Set ownerReference to the engine
-	if err := ctrl.SetControllerReference(llmEngine, llmModel, r.Scheme); err != nil {
-		logger.Error(err, "Failed to set owner reference")
+	// llmEngine has now the all values set because it is retrieved from the cluster
+	// the same for the llmEngine.Spec
+	modelDeploymentSpec, err := MergeModelDeploymentTemplate(llmEngine.Spec.ModelDeploymentTemplate, llmModel.Spec.ModelDeployment)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
+	// somehow, it is nil ...
+	if modelDeploymentSpec == nil {
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+	}
+	if !reflect.DeepEqual(llmModel.Spec.ModelDeployment, modelDeploymentSpec) {
+		logger.Info("Updating the LLMModel")
+		llmModel.Spec.ModelDeployment = modelDeploymentSpec
+		if err := r.Client.Update(ctx, llmModel); err != nil {
+			logger.Error(err, "Failed to update the llmengine")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
 
-	if err := r.reconcileLLMModel(ctx, req, llmEngine, llmModel); err != nil {
+	params := ReconcileParams{
+		llmEngine: llmEngine,
+		model:     llmModel,
+	}
+	if err := r.reconcileLLMDeployment(ctx, req, params); err != nil {
+		return ctrl.Result{}, err
+	}
+	// reconcile service for this model
+	if err := r.reconcileLLMService(ctx, req, params); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -93,7 +112,19 @@ func (r *LLMModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	// Set ownerReference to the engine
+	if err := ctrl.SetControllerReference(llmEngine, llmModel, r.Scheme); err != nil {
+		logger.Error(err, "Failed to set owner reference")
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
+}
+
+type ReconcileParams struct {
+	llmEngine *aitrigramv1.LLMEngine
+	// the ModelDeployment in the model has taken the values in the llmEngine
+	model *aitrigramv1.LLMModel
 }
 
 func (r *LLMModelReconciler) SetupWithManager(mgr ctrl.Manager) error {

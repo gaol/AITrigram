@@ -30,7 +30,7 @@ func (r *LLMModelReconciler) reconcileLLMDeployment(ctx context.Context, req ctr
 
 	logger := log.FromContext(ctx)
 
-	deploymentName := strings.ToLower(string(*&deploymentParams.llmEngine.Spec.EngineType) + "-" + strings.ReplaceAll(deploymentParams.model.Spec.Name, ".", "-"))
+	deploymentName := strings.ToLower(string(deploymentParams.llmEngine.Spec.EngineType) + "-" + strings.ReplaceAll(deploymentParams.model.Spec.Name, ".", "-"))
 	deployment := &appsv1.Deployment{}
 	nameSpaceName := &types.NamespacedName{
 		Namespace: req.Namespace,
@@ -58,20 +58,14 @@ func (r *LLMModelReconciler) reconcileLLMDeployment(ctx context.Context, req ctr
 		return err
 	}
 	// Now the deployment has been created, but maybe need to update, let's calculate it
-	existingCopy := deployment.DeepCopy()
+	existing := deployment.Spec
 	desired, err := r.newLLMEngineDeployment(nameSpaceName, deploymentParams)
 	if err != nil {
 		logger.Error(err, "Failed to define new Deployment resource for LLMEngine")
 		return err
 	}
 	// make a deep copy and ignore some fields for comparison
-	desiredCopy := desired.DeepCopy()
-	desiredCopy.ObjectMeta.OwnerReferences = nil
-	desiredCopy.ObjectMeta.ResourceVersion = ""
-	existingCopy.ObjectMeta.ResourceVersion = ""
-	existingCopy.ObjectMeta.OwnerReferences = nil
-	existingCopy.Spec = desired.Spec
-	if reflect.DeepEqual(existingCopy.Spec, desiredCopy.Spec) {
+	if reflect.DeepEqual(existing, desired.Spec) {
 		logger.Info("Deployment is already up-to-date")
 		return nil
 	}
@@ -102,8 +96,12 @@ func (r *LLMModelReconciler) newLLMEngineDeployment(nameSpaceName *types.Namespa
 	replicas := deploymentParams.model.Spec.Replicas
 	image := deploymentParams.llmEngine.Spec.Image
 	port := deploymentParams.llmEngine.Spec.Port
-	args := deploymentParams.model.Spec.ModelDeployment.Args
-	envs := deploymentParams.model.Spec.ModelDeployment.Envs
+	args := []string{}
+	envs := &[]corev1.EnvVar{}
+	if deploymentParams.model.Spec.ModelDeployment != nil {
+		args = deploymentParams.model.Spec.ModelDeployment.Args
+		envs = deploymentParams.model.Spec.ModelDeployment.Envs
+	}
 	volumes, volumeMounts := cacheAndModelsMount(deploymentParams.model.Spec.ModelDeployment.Storage)
 	appLabels := map[string]string{"app": "aitrigram-llmmodel", "instance": nameSpaceName.Name}
 	downloadScriptsTemplate := DownloadScriptsTemplate{

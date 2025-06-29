@@ -10,7 +10,8 @@
             "request": "launch",
             "mode": "debug",
             "console": "integratedTerminal",
-            "program": "${workspaceFolder}/cmd/main.go"
+            "program": "${workspaceFolder}/cmd/main.go",
+            "args": ["run"]
         }
     ]
 }

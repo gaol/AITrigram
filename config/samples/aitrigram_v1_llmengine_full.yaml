@@ -1,3 +1,4 @@
+---
 apiVersion: aitrigram.ihomeland.cn/v1
 kind: LLMEngine
 metadata:
@@ -9,20 +10,56 @@ spec:
   # the docker image for this LLMEngine
   engineType: "ollama"
   servicePort: 8080
-  image: "virt.lins-p1:5000/ollama/ollama:latest"
+  image: "ollama/ollama:latest"
+  port: 11434
+  modelDeploymentTemplate:
+    downloadImage: "ollama/ollama:latest"
+    downloadScripts: "ollama serve & sleep 10 && ollama pull {{ .ModelName }}"
+    args:
+      - "/bin/ollama"
+      - "serve"
+    storage:
+      cacheDir:
+        path: "/cache"
+        hostPath:
+          path: "/ollama/cache"
+      modelsDir:
+        path: "/models_dir"
+        emptyDir: {}
+    env:
+      - name: "OLLAMA_MODELS"
+        value: "/models_dir"
+---
+apiVersion: aitrigram.ihomeland.cn/v1
+kind: LLMModel
+metadata:
+  labels:
+    app.kubernetes.io/name: aitrigram
+    app.kubernetes.io/managed-by: kustomize
+  name: llmmodel-sample
+spec:
+  name: "gemma3-1b-with-cpu"
+  engineRef: ollama-engine-full
   replicas: 2
-  httpPort: 11434
-  args:
-    - "/bin/ollama"
-    - "serve"
-  storage:
-    cacheDir:
-      path: "/cache"
-      hostPath:
-        path: "/ollama/cache"
-    modelsDir:
-      path: "/models_dir"
-      emptyDir: {}
-  env:
-    - name: "OLLAMA_MODELS"
-      value: "/models_dir"
+  nameInEngine: "gemma3:1b"
+  resources:
+    requests:
+      cpu: 2Gi
+      memory: 2Gi
+  modelDeployment:
+    downloadImage: "ollama/ollama:latest"
+    downloadScripts: "ollama serve & sleep 10 && ollama pull {{ .ModelName }}"
+    args:
+      - "/bin/ollama"
+      - "serve"
+    storage:
+      cacheDir:
+        path: "/cache"
+        hostPath:
+          path: "/ollama/cache"
+      modelsDir:
+        path: "/models_dir"
+        emptyDir: {}
+    env:
+      - name: "OLLAMA_MODELS"
+        value: "/models_dir"
