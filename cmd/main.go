@@ -106,13 +106,13 @@ func NewRunCommand() *cobra.Command {
 		CertDir:       "",
 	}
 
-	// --leader-elect
 	cmd.Flags().StringVar(&opts.probeAddr, "health-probe-bind-address", ":8081",
 		"The address the probe endpoint binds to.")
 	cmd.Flags().BoolVar(&opts.enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager."+
 			"Enabling this will ensure there is only one active controller manager.")
-	cmd.Flags().StringVar(&opts.MetricsAddr, "metrics-addr", opts.MetricsAddr, "The address the metric endpoint binds to.")
+	cmd.Flags().StringVar(&opts.MetricsAddr, "metrics-bind-address", opts.MetricsAddr,
+		"The address the metric endpoint binds to.")
 	cmd.Flags().StringVar(&opts.CertDir, "cert-dir", opts.CertDir, "Path to the serving key and cert for manager")
 	cmd.Flags().BoolVar(&opts.EnableWebHook, "enable-webhook", false, "If enable the webhook server or not")
 
