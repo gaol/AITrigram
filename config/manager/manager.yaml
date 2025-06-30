@@ -61,6 +61,7 @@ spec:
       - command:
         - /manager
         args:
+          - run
           - --leader-elect
           - --health-probe-bind-address=:8081
         image: ghcr.io/gaol/aitrigram-controller:latest

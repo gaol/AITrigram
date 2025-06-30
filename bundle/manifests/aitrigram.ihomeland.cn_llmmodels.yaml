@@ -4,19 +4,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
   creationTimestamp: null
-  name: llmengines.aitrigram.ihomeland.cn
+  name: llmmodels.aitrigram.ihomeland.cn
 spec:
   group: aitrigram.ihomeland.cn
   names:
-    kind: LLMEngine
-    listKind: LLMEngineList
-    plural: llmengines
-    singular: llmengine
+    kind: LLMModel
+    listKind: LLMModelList
+    plural: llmmodels
+    singular: llmmodel
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
+        description: LLMModel is the Schema for the llmmodels API.
         properties:
           apiVersion:
             description: |-
@@ -36,21 +37,17 @@ spec:
           metadata:
             type: object
           spec:
-            description: LLMEngineSpec defines the desired state of LLMEngine.
+            description: LLMModelSpec defines the desired state of LLMModel.
             properties:
-              engineType:
-                description: Type specifies the type of LLM engine (e.g., ollama,
-                  vllm).
-                enum:
-                - ollama
-                - vllm
+              engineRef:
+                description: EngineRef refers to the LLMEngine where this LLMModel
+                  will be deployed into
                 type: string
-              image:
-                description: Image specifies the container image to use for the engine.
-                type: string
-              modelDeploymentTemplate:
-                description: ModelDeploymentTemplate provides default values for LLMModel
-                  CRs.
+              modelDeployment:
+                description: |-
+                  ModelDeployment sets up how the LLMModel will be deployed in a Deployment
+                  the values here will override the default values from the LLMEngine.
+                  This is useful when you want to deploy a model with different settings than the engine.
                 properties:
                   args:
                     description: Default arguments to start the engine container.
@@ -2012,29 +2009,89 @@ spec:
                         type: object
                     type: object
                 type: object
-              port:
-                description: Port specifies the open HTTP port for the engine inside
-                  of the container
+              name:
+                description: Name specifies the LLM model name.
+                type: string
+              nameInEngine:
+                description: It is the name inside of the engine itself, it is the
+                  Name if not defined.
+                type: string
+              replicas:
+                description: Number of replicas for this model.
                 format: int32
-                maximum: 65535
                 minimum: 1
                 type: integer
-              servicePort:
-                description: ServicePort specifies the port for the ClusterIP Service
-                  managed by this engine.
-                format: int32
-                maximum: 65535
-                minimum: 1
-                type: integer
+              resources:
+                description: Resource requirements for this model (overrides engine
+                  defaults).
+                properties:
+                  claims:
+                    description: |-
+                      Claims lists the names of resources, defined in spec.resourceClaims,
+                      that are used by this container.
+
+                      This is an alpha field and requires enabling the
+                      DynamicResourceAllocation feature gate.
+
+                      This field is immutable. It can only be set for containers.
+                    items:
+                      description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                      properties:
+                        name:
+                          description: |-
+                            Name must match the name of one entry in pod.spec.resourceClaims of
+                            the Pod where this field is used. It makes that resource available
+                            inside a container.
+                          type: string
+                        request:
+                          description: |-
+                            Request is the name chosen for a request in the referenced claim.
+                            If empty, everything from the claim is made available, otherwise
+                            only the result of this request.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Limits describes the maximum amount of compute resources allowed.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Requests describes the minimum amount of compute resources required.
+                      If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                      otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                type: object
             required:
-            - engineType
+            - engineRef
+            - name
+            - replicas
             type: object
           status:
-            description: LLMEngineStatus defines the observed state of LLMEngine.
+            description: LLMModelStatus defines the observed state of LLMModel.
             properties:
               conditions:
                 description: Conditions represent the latest available observations
-                  of the LLMEngine's state.
+                  of the LLMModel's state.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

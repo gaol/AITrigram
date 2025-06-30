@@ -83,11 +83,13 @@ func main() {
 }
 
 type StartOptions struct {
-	Namespace     string
-	PodName       string
-	MetricsAddr   string
-	EnableWebHook bool
-	CertDir       string
+	Namespace            string
+	PodName              string
+	MetricsAddr          string
+	EnableWebHook        bool
+	CertDir              string
+	probeAddr            string
+	enableLeaderElection bool
 }
 
 func NewRunCommand() *cobra.Command {
@@ -104,8 +106,9 @@ func NewRunCommand() *cobra.Command {
 		CertDir:       "",
 	}
 
-	cmd.Flags().StringVar(&opts.Namespace, "namespace", opts.Namespace, "The namespace this operator lives in")
-	cmd.Flags().StringVar(&opts.PodName, "pod-name", opts.PodName, "The name of the pod the operator runs in")
+	// --leader-elect
+	cmd.Flags().StringVar(&opts.probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	cmd.Flags().BoolVar(&opts.enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	cmd.Flags().StringVar(&opts.MetricsAddr, "metrics-addr", opts.MetricsAddr, "The address the metric endpoint binds to.")
 	cmd.Flags().StringVar(&opts.CertDir, "cert-dir", opts.CertDir, "Path to the serving key and cert for manager")
 	cmd.Flags().BoolVar(&opts.EnableWebHook, "enable-webhook", false, "If enable the webhook server or not")
@@ -131,7 +134,8 @@ func run(ctx context.Context, opts *StartOptions, log logr.Logger) error {
 	renewDeadline := time.Second * 40
 	retryPeriod := time.Second * 15
 	ctrlOptions := ctrl.Options{
-		Scheme: scheme,
+		Scheme:                 scheme,
+		HealthProbeBindAddress: opts.probeAddr,
 		Metrics: metricsserver.Options{
 			BindAddress: opts.MetricsAddr,
 		},
@@ -140,7 +144,7 @@ func run(ctx context.Context, opts *StartOptions, log logr.Logger) error {
 				Unstructured: true,
 			},
 		},
-		LeaderElection:                false,
+		LeaderElection:                opts.enableLeaderElection,
 		LeaderElectionID:              "llmengine-operator-leader-elect",
 		LeaderElectionResourceLock:    "leases",
 		LeaderElectionReleaseOnCancel: true,

@@ -24,10 +24,22 @@ metadata:
             ],
             "replicas": 2
           }
+        },
+        {
+          "apiVersion": "aitrigram.ihomeland.cn/v1",
+          "kind": "LLMModel",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "aitrigram"
+            },
+            "name": "llmmodel-sample"
+          },
+          "spec": null
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-06-24T08:49:10Z"
+    createdAt: "2025-06-30T10:55:05Z"
     operators.operatorframework.io/builder: operator-sdk-v1.40.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: aitrigram.v0.0.1
@@ -36,10 +48,14 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: LLMEngine is the Schema for the llmengines API.
-      displayName: LLMEngine
+    - displayName: LLMEngine
       kind: LLMEngine
       name: llmengines.aitrigram.ihomeland.cn
+      version: v1
+    - description: LLMModel is the Schema for the llmmodels API.
+      displayName: LLMModel
+      kind: LLMModel
+      name: llmmodels.aitrigram.ihomeland.cn
       version: v1
   description: The operator to undle AI inference providers
   displayName: aitrigram
@@ -60,14 +76,6 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - pods
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
           - services
           verbs:
           - create
@@ -81,6 +89,7 @@ spec:
           - aitrigram.ihomeland.cn
           resources:
           - llmengines
+          - llmmodels
           verbs:
           - create
           - delete
@@ -93,12 +102,14 @@ spec:
           - aitrigram.ihomeland.cn
           resources:
           - llmengines/finalizers
+          - llmmodels/finalizers
           verbs:
           - update
         - apiGroups:
           - aitrigram.ihomeland.cn
           resources:
           - llmengines/status
+          - llmmodels/status
           verbs:
           - get
           - patch
@@ -152,6 +163,7 @@ spec:
               containers:
               - args:
                 - --metrics-bind-address=:8443
+                - run
                 - --leader-elect
                 - --health-probe-bind-address=:8081
                 command:

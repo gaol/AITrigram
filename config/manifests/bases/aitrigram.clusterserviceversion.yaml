@@ -10,10 +10,14 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: LLMEngine is the Schema for the llmengines API.
-      displayName: LLMEngine
+    - displayName: LLMEngine
       kind: LLMEngine
       name: llmengines.aitrigram.ihomeland.cn
+      version: v1
+    - description: LLMModel is the Schema for the llmmodels API.
+      displayName: LLMModel
+      kind: LLMModel
+      name: llmmodels.aitrigram.ihomeland.cn
       version: v1
   description: The operator to undle AI inference providers
   displayName: aitrigram
