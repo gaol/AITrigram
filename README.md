@@ -2,7 +2,7 @@
 A kubernetes operator on LLMs serving.
 
 ## Description
-With the operator, users can define their own `LLMEngine`s easily with scalbility capability.
+With the operator, users can define their own `LLMEngine` `LLMModel` to k8s cluster to serve the LLM.
 
 ## Getting Started
 
@@ -12,75 +12,9 @@ With the operator, users can define their own `LLMEngine`s easily with scalbilit
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
 
-### To Deploy on the cluster
+## To Deploy on the cluster
 
-**Build and push your image to the location specified by `IMG`:**
-
-```sh
-make docker-build docker-push IMG=<some-registry>/aitrigram-controller:tag
-```
-
-**Install the CRDs into the cluster:**
-
-```sh
-make install
-```
-
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
-
-```sh
-make deploy IMG=<some-registry>/aitrigram-controller:tag
-```
-
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
-
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-## Project Distribution
-
-Following the options to release and provide this solution to the users.
-
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/aitrigram-controller:tag
-```
-
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
-
-2. Using the installer
+**Using the installer**
 
 Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
 the project, i.e.:
@@ -89,27 +23,76 @@ the project, i.e.:
 kubectl apply -f https://raw.githubusercontent.com/gaol/AITrigram/main/dist/install.yaml
 ```
 
-### By providing a Helm Chart
+### Deploy LLM Servings
 
-1. Build the chart using the optional helm plugin
+```yaml
+apiVersion: aitrigram.ihomeland.cn/v1
+kind: LLMEngine
+metadata:
+  name: ollama
+  namespace: default
+spec:
+  engineType: "ollama"
+  port: 11434
+  servicePort: 8080
+---
+apiVersion: aitrigram.ihomeland.cn/v1
+kind: LLMModel
+metadata:
+  name: llama3
+  namespace: default
+spec:
+  name: "llama3"
+  engineRef: ollama
+  replicas: 2
+  nameInEngine: "llama3.2:latest"
+```
+Then, you have 2 replicas of Ollama servers which has the `llama3.2:latest` ready for you to access, and it has a service published too at: `ollama-llama3.default.svc.cluster.local:8080` inside the cluster.
 
-```sh
-kubebuilder edit --plugins=helm/v1-alpha
+If you want to access it from outside of the cluster, create ingress or route according to your cluster type:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ollama-engine
+  annotations:
+    # path-rewrite removes the '/ollama' in the path to pass to backend ollama servers.
+     haproxy.org/path-rewrite: /ollama/(.*) /\1
+  labels:
+    name: ollama-engine
+spec:
+  rules:
+  - host: k8s-worker
+    http:
+      paths:
+      - pathType: Prefix
+        path: /ollama
+        backend:
+          service:
+            name: ollama-llama3
+            port:
+              number: 8080
 ```
 
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
+Or on openshift:
 
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
+```yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ollama-llama3
+  namespace: default
+spec:
+  port:
+    targetPort: 8080
+  to:
+    kind: Service
+    name: ollama-llama3
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
+```
 
-## To Debug
+#### To Debug
 
 Create a `.vscode/launch.json` file with a configuration to debug:
 ```json
@@ -120,7 +103,8 @@ Create a `.vscode/launch.json` file with a configuration to debug:
             "request": "launch",
             "mode": "debug",
             "console": "integratedTerminal",
-            "program": "${file}"
+            "program": "${file}",
+            "args": ["run"]
         }
     ]
 ```
