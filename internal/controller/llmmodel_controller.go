@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"reflect"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -79,7 +78,7 @@ func (r *LLMModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if modelDeploymentSpec == nil {
 		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
-	if !reflect.DeepEqual(llmModel.Spec.ModelDeployment, modelDeploymentSpec) {
+	if !ModelDeploymentEquals(llmModel.Spec.ModelDeployment, modelDeploymentSpec) {
 		logger.Info("Updating the LLMModel")
 		llmModel.Spec.ModelDeployment = modelDeploymentSpec
 		if err := r.Client.Update(ctx, llmModel); err != nil {

@@ -17,68 +17,93 @@ limitations under the License.
 package controller
 
 import (
-	"context"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 
 	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("LLMModel Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+func Test_LLMModelDefault(t *testing.T) {
+	t.Parallel()
+	// ollamaEngineType := aitrigramv1.LLMEngineTypeOllama
+	// ollamaDefaultEngineSpec := *DefaultLLMEngineSpec(&ollamaEngineType)
+	// cacheSizeLimit := resource.MustParse("2Gi")
 
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
-		}
-		llmmodel := &aitrigramv1.LLMModel{}
-
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind LLMModel")
-			err := k8sClient.Get(ctx, typeNamespacedName, llmmodel)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &aitrigramv1.LLMModel{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
+	cases := map[string]struct {
+		llmEngineSpec aitrigramv1.LLMEngineSpec
+		llmModelSpec  aitrigramv1.LLMModelSpec
+		expected      aitrigramv1.ModelDeploymentTemplate
+	}{
+		"default-empty": {
+			llmEngineSpec: aitrigramv1.LLMEngineSpec{
+				EngineType: aitrigramv1.LLMEngineTypeOllama,
+				ModelDeploymentTemplate: &aitrigramv1.ModelDeploymentTemplate{
+					Args:          []string{"/bin/ollama", "serve", "-b", "127.0.0.1"},
+					DownloadImage: "ollama/ollama:latest",
+					Envs: &[]corev1.EnvVar{
+						{
+							Name:  "OLLAMA_MODELS",
+							Value: "/models",
+						},
+						{
+							Name:  "OLLAMA_CACHE_DIR",
+							Value: "/cache_dir_old",
+						},
 					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
+			},
+			llmModelSpec: aitrigramv1.LLMModelSpec{
+				Name:      "test-model",
+				EngineRef: "test-engine",
+				Replicas:  1,
+				ModelDeployment: &aitrigramv1.ModelDeploymentTemplate{
+					Args: []string{"/bin/ollama", "serve", "-b", "0.0.0.0"},
+					Envs: &[]corev1.EnvVar{
+						{
+							Name:  "OLLAMA_MODELS",
+							Value: "/new_models",
+						},
+						{
+							Name:  "OLLAMA_CACHE_DIR",
+							Value: "/cache_dir",
+						},
+						{
+							Name:  "NEW_ENV",
+							Value: "new env value",
+						},
+					},
+				},
+			},
+			expected: aitrigramv1.ModelDeploymentTemplate{
+				Args:          []string{"/bin/ollama", "serve", "-b", "0.0.0.0"},
+				DownloadImage: "ollama/ollama:latest",
+				Envs: &[]corev1.EnvVar{
+					{
+						Name:  "OLLAMA_MODELS",
+						Value: "/new_models",
+					},
+					{
+						Name:  "OLLAMA_CACHE_DIR",
+						Value: "/cache_dir",
+					},
+					{
+						Name:  "NEW_ENV",
+						Value: "new env value",
+					},
+				},
+			},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			result, err := MergeModelDeploymentTemplate(c.llmEngineSpec.ModelDeploymentTemplate, c.llmModelSpec.ModelDeployment)
+			require.NoError(t, err)
+			if !ModelDeploymentEquals(&c.expected, result) {
+				t.Errorf("maps do not match.\nExpected: %#v\nActual: %#v", c.expected, *result)
 			}
 		})
-
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &aitrigramv1.LLMModel{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance LLMModel")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &LLMModelReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
-		})
-	})
-})
+	}
+}

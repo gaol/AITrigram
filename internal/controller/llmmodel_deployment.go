@@ -41,7 +41,7 @@ func (r *LLMModelReconciler) reconcileLLMDeployment(ctx context.Context, req ctr
 		// Failed to get the deployment info, but maybe because of not found
 		if apierrors.IsNotFound(err) {
 			// create one, and return
-			newDeployment, err := r.newLLMEngineDeployment(nameSpaceName, deploymentParams)
+			newDeployment, err := r.newLLMModelDeployment(nameSpaceName, deploymentParams)
 			if err != nil {
 				logger.Error(err, "Failed to define new Deployment resource for LLMEngine")
 				return err
@@ -59,7 +59,7 @@ func (r *LLMModelReconciler) reconcileLLMDeployment(ctx context.Context, req ctr
 	}
 	// Now the deployment has been created, but maybe need to update, let's calculate it
 	existing := deployment.Spec
-	desired, err := r.newLLMEngineDeployment(nameSpaceName, deploymentParams)
+	desired, err := r.newLLMModelDeployment(nameSpaceName, deploymentParams)
 	if err != nil {
 		logger.Error(err, "Failed to define new Deployment resource for LLMEngine")
 		return err
@@ -92,7 +92,7 @@ func generateInitScript(scripts string, data DownloadScriptsTemplate) (string, e
 }
 
 // The new deployment has the ownerReferences to the llmEngine CR, so it will be handled automatically by the core
-func (r *LLMModelReconciler) newLLMEngineDeployment(nameSpaceName *types.NamespacedName, deploymentParams ReconcileParams) (*appsv1.Deployment, error) {
+func (r *LLMModelReconciler) newLLMModelDeployment(nameSpaceName *types.NamespacedName, deploymentParams ReconcileParams) (*appsv1.Deployment, error) {
 	replicas := deploymentParams.model.Spec.Replicas
 	image := deploymentParams.llmEngine.Spec.Image
 	port := deploymentParams.llmEngine.Spec.Port
@@ -129,14 +129,12 @@ func (r *LLMModelReconciler) newLLMEngineDeployment(nameSpaceName *types.Namespa
 					Labels: appLabels,
 				},
 				Spec: corev1.PodSpec{
-					Volumes: volumes,
 					InitContainers: []corev1.Container{{
-						Image:        deploymentParams.model.Spec.ModelDeployment.DownloadImage,
-						Name:         "init-" + nameSpaceName.Name,
-						VolumeMounts: volumeMounts,
-						Env:          *envs,
-						Command:      []string{"/bin/sh", "-c"},
-						Args:         []string{downloadScripts},
+						Image:   deploymentParams.model.Spec.ModelDeployment.DownloadImage,
+						Name:    "init-" + nameSpaceName.Name,
+						Env:     *envs,
+						Command: []string{"/bin/sh", "-c"},
+						Args:    []string{downloadScripts},
 					}},
 					Containers: []corev1.Container{{
 						Image:           image,
@@ -147,14 +145,21 @@ func (r *LLMModelReconciler) newLLMEngineDeployment(nameSpaceName *types.Namespa
 							ContainerPort: port,
 							Name:          "http",
 						}},
-						Command:      args,
-						VolumeMounts: volumeMounts,
-						Env:          *envs,
+						Command: args,
+						Env:     *envs,
 					}},
 				},
 			},
 		},
 	}
+	if volumes != nil {
+		dep.Spec.Template.Spec.Volumes = volumes
+	}
+	if volumeMounts != nil {
+		dep.Spec.Template.Spec.InitContainers[0].VolumeMounts = volumeMounts
+		dep.Spec.Template.Spec.Containers[0].VolumeMounts = volumeMounts
+	}
+
 	// Set the ownerRef for the Deployment
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
 	if err := ctrl.SetControllerReference(deploymentParams.model, dep, r.Scheme); err != nil {

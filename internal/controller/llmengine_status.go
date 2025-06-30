@@ -11,7 +11,7 @@ import (
 	aitrigramv1 "github.com/gaol/AITrigram/api/v1"
 )
 
-func (r *LLMEngineReconciler) updateLLMEngineStatus(ctx context.Context, req ctrl.Request, condition *metav1.Condition) error {
+func (r *LLMEngineReconciler) UpdateLLMEngineStatus(ctx context.Context, req ctrl.Request, condition *metav1.Condition) error {
 	llmEngine := &aitrigramv1.LLMEngine{}
 	if err := r.Get(ctx, req.NamespacedName, llmEngine); err != nil {
 		return client.IgnoreNotFound(err)

@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -104,6 +106,21 @@ type ModelDeploymentTemplate struct {
 	// DownloadScripts for model preparation
 	// +optional
 	DownloadScripts string `json:"downloadScripts,omitempty"`
+}
+
+func (m ModelDeploymentTemplate) String() string {
+	return fmt.Sprintf("Args: %s, Envs: %s, DownloadImage: %s, DownloadScripts: %s", m.Args, EnvsString(m.Envs), m.DownloadImage, m.DownloadScripts)
+}
+
+func EnvsString(envs *[]corev1.EnvVar) string {
+	if envs == nil {
+		return "nil"
+	}
+	result := ""
+	for i := range *envs {
+		result += fmt.Sprintf("Name: %s, Value: %s", (*envs)[i].Name, (*envs)[i].Value)
+	}
+	return result
 }
 
 // LLMEngineStatus defines the observed state of LLMEngine.

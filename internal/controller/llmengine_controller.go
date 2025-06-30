@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,11 +57,11 @@ func (r *LLMEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	desired, err := MergeLLMSpecs(DefaultLLMEngineSpec(&llmEngine.Spec.EngineType), &llmEngine.Spec)
+	desired, err := MergeLLMSpecs(DefaultLLMEngineSpec(&llmEngine.Spec.EngineType).DeepCopy(), &llmEngine.Spec)
 	if err != nil {
 		return ctrl.Result{}, nil
 	}
-	if reflect.DeepEqual(llmEngine.Spec, desired) {
+	if LLMEngineSpecEquals(&llmEngine.Spec, desired) {
 		logger.Info("LLMEngine is already up-to-date")
 		return ctrl.Result{}, nil
 	}

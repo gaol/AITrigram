@@ -8,16 +8,12 @@ import (
 
 func cacheAndModelsMount(storage *aitrigramv1.LLMEngineStorage) ([]corev1.Volume, []corev1.VolumeMount) {
 	// storage may be nil
-
-	// storage := modelSpec.ModelDeployment.Storage
-	var modelStorage *aitrigramv1.ModelStorage
-	var cacheStorage *aitrigramv1.CacheStorage
-	if storage != nil {
-		if storage.ModelsStorage != nil {
-			modelStorage = storage.ModelsStorage
-		}
-		cacheStorage = storage.CacheStorage
+	if storage == nil {
+		return nil, nil
 	}
+
+	modelStorage := storage.ModelsStorage
+	cacheStorage := storage.CacheStorage
 	modelVolume := corev1.Volume{
 		Name:         "models",
 		VolumeSource: modelStorage.VolumeSource,
@@ -46,7 +42,7 @@ func DefaultLLMEngineSpec(engineType *aitrigramv1.LLMEngineType) *aitrigramv1.LL
 	if *engineType == aitrigramv1.LLMEngineTypeOllama {
 		return defaultsOfOllamaEngine()
 	}
-	//TODO add more for other types
+	// TODO add more for other types
 	return &aitrigramv1.LLMEngineSpec{}
 }
 
